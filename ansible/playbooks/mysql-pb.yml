@@ -1,0 +1,24 @@
+---
+# Playbook to install and configure a database server (e.g., MySQL)
+- name: Install and configure database server
+  hosts: dbservers
+  become: yes
+  tasks:
+    - name: Install MySQL server
+      apt:
+        name: mysql-server
+        state: present
+        update_cache: yes
+
+    - name: Ensure MySQL is running and enabled
+      systemd:
+        name: mysql
+        enabled: yes
+        state: started
+
+    - name: Set MySQL root password
+      mysql_user:
+        name: root
+        password: "{{ mysql_root_password }}"
+        priv: "*.*:ALL"
+        state: present

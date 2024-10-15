@@ -1,0 +1,10 @@
+---
+# Tasks for the common role, installing basic utilities
+- name: Install basic utilities
+  apt:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - curl
+    - git
+    - vim

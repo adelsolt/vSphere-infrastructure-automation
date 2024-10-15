@@ -1,0 +1,23 @@
+---
+# Playbook to create users and configure SSH keys
+- name: Create users and configure SSH keys
+  hosts: all
+  become: yes
+  tasks:
+    - name: Add a user
+      user:
+        name: "{{ item.name }}"
+        state: present
+        shell: /bin/bash
+      loop:
+        - { name: "deploy" }
+        - { name: "admin" }
+
+    - name: Configure SSH authorized keys for users
+      authorized_key:
+        user: "{{ item.name }}"
+        key: "{{ lookup('file', item.key) }}"
+        state: present
+      loop:
+        - { name: "deploy", key: "/path/to/deploy_key.pub" }
+        - { name: "admin", key: "/path/to/admin_key.pub" }

@@ -1,0 +1,27 @@
+---
+- name: Common Configuration Playbook
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Retrieve secure credentials from Vault
+      ansible.builtin.uri:
+        url: "https://vault.example.com/v1/secret/data/ansible"
+        method: GET
+        headers:
+          X-Vault-Token: "{{ vault_token }}"  # Vault token injected here
+      register: vault_response
+
+    - name: Use Vault secrets for environment variables
+      ansible.builtin.set_fact:
+        ansible_user: "{{ vault_response.json.data.user }}"
+        ansible_password: "{{ vault_response.json.data.password }}"
+
+    - name: Install common packages
+      ansible.builtin.package:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - curl
+        - git
+        - htop

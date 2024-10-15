@@ -1,0 +1,20 @@
+---
+# Playbook to install and configure Apache web server
+- name: Install and configure Apache web server
+  hosts: webservers
+  become: yes
+  tasks:
+    - name: Install Apache
+      apt:
+        name: apache2
+        state: present
+        update_cache: yes
+
+    - name: Ensure Apache is running and enabled
+      systemd:
+        name: apache2
+        enabled: yes
+        state: started
+
+
+

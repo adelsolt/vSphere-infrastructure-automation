@@ -1,0 +1,65 @@
+{
+  "variables": {
+    "vsphere_server": "{{env `VSPHERE_SERVER`}}",
+    "vsphere_user": "{{env `VSPHERE_USER`}}",
+    "vsphere_password": "{{env `VSPHERE_PASSWORD`}}",
+    "datacenter": "{{env `VSPHERE_DATACENTER`}}",
+    "cluster": "{{env `VSPHERE_CLUSTER`}}",
+    "network": "{{env `VSPHERE_NETWORK`}}",
+    "datastore": "{{env `VSPHERE_DATASTORE`}}",
+    "template_name": "debian12-template"
+  },
+  "builders": [
+    {
+      "type": "vsphere-iso",
+      "vcenter_server": "{{user `vsphere_server`}}",
+      "username": "{{user `vsphere_user`}}",
+      "password": "{{user `vsphere_password`}}",
+      "datacenter": "{{user `datacenter`}}",
+      "cluster": "{{user `cluster`}}",
+      "network": "{{user `network`}}",
+      "datastore": "{{user `datastore`}}",
+      "guest_os_type": "debian10_64Guest",
+      "iso_paths": ["[ds1] iso/debian-12.iso"],
+      "disk_controller_type": "pvscsi",
+      "CPUs": 2,
+      "RAM": 2048,
+      "RAM_reserve_all": false,
+      "network_adapters": [
+        {
+          "network": "{{user `network`}}",
+          "network_card": "vmxnet3"
+        }
+      ],
+      "disk_size": 10240,
+      "disk_thin_provisioned": true,
+      "floppy_files": [
+        "http/preseed/debian12_preseed.cfg"
+      ],
+      "boot_command": [
+        "<esc><wait>",
+        "install preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/debian12_preseed.cfg ",
+        "debian-installer=en_US auto locale=en_US kbd-chooser/method=us ",
+        "hostname={{ .Name }} ",
+        "fb=false debconf/frontend=noninteractive ",
+        "keyboard-configuration/xkb-keymap=us ",
+        "<enter>"
+      ],
+      "ssh_username": "packer",
+      "ssh_password": "packer",
+      "ssh_port": 22,
+      "ssh_wait_timeout": "20m",
+      "shutdown_command": "echo 'packer' | sudo -S shutdown -P now",
+      "vm_name": "{{user `template_name`}}",
+      "host": "{{user `vsphere_server`}}"
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "shell",
+      "inline": [
+        "echo 'Provisioning Debian 12...'"
+      ]
+    }
+  ]
+}
