@@ -48,7 +48,7 @@ The "Infrastructure as Coded" project automates the provisioning and management 
 │   ├── config/             # Vault configuration files
 │   └── secrets/            # Securely stored secrets for Ansible and Terraform
 └── README.md               # This file
-
+```
 ## Requirements
 
 - **VMware vCenter**: Required for managing VM templates and deployments. Ensure you have access to a vCenter instance.
@@ -81,7 +81,7 @@ Start an HTTP server to serve the preseed files for automated OS installations:
 ```bash
 cd packer/scripts/preseed/
 python3 -m http.server 8080
-
+```
 ### Terraform
 
 1. **Install Terraform**: Download and install Terraform from [Terraform.io](https://www.terraform.io/downloads).
