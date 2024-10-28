@@ -1,34 +1,34 @@
 variable "vcenter_server" {
   type    = string
-  default = "your_vcenter_ip"    # Replace with your vCenter server IP
+  default = "your_vcenter_ip"    # vCenter server IP
 }
 
 variable "vcenter_user" {
   type    = string
-  default = "administrator@vsphere.local"  # Replace with your vSphere admin username
+  default = "administrator@vsphere.local"  # vSphere admin username
 }
 
 variable "vcenter_password" {
   type    = string
-  default = "password"             # Replace with your vSphere password
+  default = "password"             # vSphere password
 }
 
 variable "datastore" {
   type    = string
-  default = "datastore1"           # Replace with your datastore name
+  default = "datastore1"           # datastore name
 }
 
 variable "network" {
   type    = string
-  default = "VM Network"           # Replace with your network name
+  default = "VM Network"           # network name
 }
 
 variable "cluster" {
   type    = string
-  default = "Cluster1"             # Replace with your cluster name
+  default = "Cluster1"             # cluster name
 }
 
 variable "datacenter" {
   type    = string
-  default = "Datacenter1"          # Replace with your datacenter name
+  default = "Datacenter1"          # datacenter name
 }

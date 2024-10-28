@@ -49,24 +49,24 @@ The "Infrastructure as Coded" project automates the provisioning and management 
 │   └── secrets/            # Securely stored secrets for Ansible and Terraform
 └── README.md               # This file
 ```
-## Requirements
+## Project Components
 
-- **VMware vCenter**: Required for managing VM templates and deployments. Ensure you have access to a vCenter instance.
-- **Packer**: For creating OS image templates. Download from [Packer.io](https://www.packer.io/downloads).
-- **Terraform**: For provisioning VMs and managing infrastructure. Download from [Terraform.io](https://www.terraform.io/downloads).
-- **Ansible**: For configuring and managing VMs post-deployment. Follow the installation instructions from [Ansible](https://docs.ansible.com/ansible/latest/installation_guide/index.html).
-- **Vault**: For securely storing secrets and sensitive data. Download and install from [HashiCorp Vault](https://www.vaultproject.io/downloads).
+- **VMware vCenter**: Required for managing VM templates and deployments. 
+- **Packer**: For creating OS image templates. 
+- **Terraform**: For provisioning VMs and managing infrastructure.
+- **Ansible**: For configuring and managing VMs post-deployment.
+- **Vault**: For securely storing secrets and sensitive data.
 - **HTTP Server**: Needed to serve preseed files for automated OS installations.
 
 ## Getting Started
 
 ### Packer
 
-1. **Install Packer**: Download and install Packer from [Packer.io](https://www.packer.io/downloads).
+1. **Installed Packer**: Downloaded and installed Packer 
 
-2. **Configure Packer Templates**: Edit the Packer JSON files in `packer/templates/` to customize the VM images.
+2. **Configured Packer Templates**: Edited the Packer JSON files in `packer/templates/` to customize the VM images.
 
-3. **Build VM Images**: Run the following commands to build the images:
+3. **VM Images Building**
 
     ```bash
     packer build packer/templates/debian12.json
@@ -76,7 +76,7 @@ The "Infrastructure as Coded" project automates the provisioning and management 
 
 ### HTTP Preseed Server
 
-Start an HTTP server to serve the preseed files for automated OS installations:
+Starting an HTTP server to serve the preseed files for automated OS installations:
 
 ```bash
 cd packer/scripts/preseed/
@@ -84,11 +84,11 @@ python3 -m http.server 8080
 ```
 ### Terraform
 
-1. **Install Terraform**: Download and install Terraform from [Terraform.io](https://www.terraform.io/downloads).
+1. **Installed Terraform**
 
-2. **Configure Terraform Files**: Edit the `terraform/` files and ensure `terraform.tfvars` is updated.
+2. **Configured Terraform Files**: located in `terraform/` 
 
-3. **Initialize and Apply Terraform**: Run the following commands:
+3. **Initialized and Applied Terraform**
 
     ```bash
     cd terraform/
@@ -98,11 +98,11 @@ python3 -m http.server 8080
 
 ### Ansible
 
-1. **Install Ansible**: Follow the installation instructions from [Ansible](https://docs.ansible.com/ansible/latest/installation_guide/index.html).
+1. **Installed Ansibled**
 
-2. **Configure Inventory**: Update `ansible/inventory/hosts.ini` with VM IP addresses.
+2. **Configured Inventory**: Update `ansible/inventory/hosts.ini` with VM IP addresses.
 
-3. **Run Playbooks**: Run the Ansible playbooks to configure the VMs:
+3. **Running Playbooks**
 
     ```bash
     ansible-playbook ansible/playbooks/apache.yml
@@ -114,14 +114,14 @@ python3 -m http.server 8080
 
 ### Vault Integration
 
-Vault is used to securely store and retrieve sensitive information such as passwords, API keys, and SSH credentials. The secrets are dynamically injected into the Terraform and Ansible configurations during deployment.
+Vault is used to securely store and retrieve sensitive information such as passwords, API keys, and SSH credentials. Which will be dynamically injected into the Terraform and Ansible configurations during deployment.
 
-1. **Install Vault**: Download and install Vault from [HashiCorp Vault](https://www.vaultproject.io/downloads).
+1. **Installed Vault**
 
-2. **Configure Vault**: Set up Vault to store the secrets required by the project. The secrets are stored in `vault/secrets/`.
+2. **Configured Vault**: Setted up Vault to store the secrets required by the project. The secrets are stored in `vault/secrets/`.
 
-3. **Use Vault in Terraform and Ansible**: Modify your Terraform and Ansible configurations to pull secrets from Vault instead of hardcoding them directly.
+3. **Used Vault in Terraform and Ansible**: The Terraform and Ansible configurations are modified to pull secrets from Vault instead of hardcoding them directly.
 
    For example:
-   - In Terraform, you can use `vault_generic_secret` to retrieve secrets.
-   - In Ansible, you can use the `ansible-vault` integration to securely access secrets.
+   - In Terraform, `vault_generic_secret` can used to retrieve secrets.
+   - In Ansible, `ansible-vault` can used integration to securely access secrets.
