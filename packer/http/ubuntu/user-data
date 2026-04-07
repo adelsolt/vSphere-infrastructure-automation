@@ -1,0 +1,50 @@
+#cloud-config
+# ============================================================
+# Ubuntu 22.04 autoinstall user-data
+#
+# Ubuntu 20.04+ uses "autoinstall" instead of the old preseed system.
+# Under the hood it's cloud-init YAML. The live-server ISO looks for
+# this file at /user-data on the seed URL. Packer serves it over its
+# built-in HTTP server.
+#
+# Ref: https://ubuntu.com/server/docs/install/autoinstall-reference
+# ============================================================
+autoinstall:
+  version: 1
+
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+
+  # minimal install — no snap packages, no desktop bloat
+  storage:
+    layout:
+      name: direct   # single root partition, no LVM
+
+  identity:
+    hostname: ubuntu-template
+    username: packer
+    # "packer" hashed — replace with a proper hash for production
+    password: "$6$rounds=4096$saltsalt$hashedpassword"
+
+  ssh:
+    install-server: true
+    allow-pw: true   # packer needs password SSH to connect
+
+  packages:
+    - curl
+    - git
+    - htop
+    - open-vm-tools
+    - python3
+    - vim
+
+  late-commands:
+    # passwordless sudo so packer provisioner can run as root
+    - echo "packer ALL=(ALL) NOPASSWD:ALL" > /target/etc/sudoers.d/packer
+    - chmod 440 /target/etc/sudoers.d/packer
+    # enable open-vm-tools at boot so vCenter can see the VM
+    - curtin in-target -- systemctl enable open-vm-tools
+
+  user-data:
+    disable_root: true

@@ -1,5 +1,5 @@
 # ============================================================
-# CentOS Stream 9 build vars
+# Ubuntu 22.04 build vars — same pattern as debian
 # Pass vcenter_password via -var="vcenter_password=$VSPHERE_PASSWORD"
 # ============================================================
 
