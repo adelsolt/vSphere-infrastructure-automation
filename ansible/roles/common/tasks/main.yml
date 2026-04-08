@@ -1,10 +1,24 @@
 ---
-# Tasks for the common role, installing basic utilities
-- name: Install basic utilities
-  apt:
-    name: "{{ item }}"
+- name: Install base packages
+  ansible.builtin.package:
+    name: "{{ common_packages }}"
     state: present
-  loop:
-    - curl
-    - git
-    - vim
+
+- name: Install chrony
+  ansible.builtin.package:
+    name: chrony
+    state: present
+  notify: Restart chrony
+
+- name: Ensure chrony is running and enabled
+  ansible.builtin.systemd:
+    name: "{{ 'chronyd' if ansible_os_family == 'RedHat' else 'chrony' }}"
+    state: started
+    enabled: true
+
+- name: Set /etc/hosts loopback entry
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "127.0.1.1 {{ inventory_hostname }}.rscc.internal {{ inventory_hostname }}"
+    regexp: "^127.0.1.1"
+    state: present

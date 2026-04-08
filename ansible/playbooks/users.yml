@@ -1,23 +1,56 @@
 ---
-# Playbook to create users and configure SSH keys
-- name: Create users and configure SSH keys
-  hosts: all
-  become: yes
-  tasks:
-    - name: Add a user
-      user:
-        name: "{{ item.name }}"
-        state: present
-        shell: /bin/bash
-      loop:
-        - { name: "deploy" }
-        - { name: "admin" }
+- name: User and SSH key management
+  hosts: all_vms
+  become: true
+  gather_facts: false
 
-    - name: Configure SSH authorized keys for users
-      authorized_key:
-        user: "{{ item.name }}"
-        key: "{{ lookup('file', item.key) }}"
+  vars:
+    service_users:
+      - name: deploy
+        groups: ["sudo"]
+        shell: /bin/bash
+        pubkey_file: files/pubkeys/deploy.pub
+        comment: "CI/CD deploy service account"
+      - name: admin
+        groups: ["sudo", "adm"]
+        shell: /bin/bash
+        pubkey_file: files/pubkeys/admin.pub
+        comment: "Infra admin account"
+
+  tasks:
+    - name: Create user accounts
+      ansible.builtin.user:
+        name: "{{ item.name }}"
+        groups: "{{ item.groups }}"
+        shell: "{{ item.shell }}"
+        comment: "{{ item.comment }}"
         state: present
-      loop:
-        - { name: "deploy", key: "/path/to/deploy_key.pub" }
-        - { name: "admin", key: "/path/to/admin_key.pub" }
+        create_home: true
+      loop: "{{ service_users }}"
+
+    - name: Set authorized SSH keys
+      ansible.posix.authorized_key:
+        user: "{{ item.name }}"
+        key: "{{ lookup('file', item.pubkey_file) }}"
+        state: present
+        exclusive: false
+      loop: "{{ service_users }}"
+      when: lookup('file', item.pubkey_file, errors='ignore') is not none
+
+    - name: Write sudoers policy
+      ansible.builtin.copy:
+        content: |
+          # managed by ansible — do not edit manually
+          %sudo ALL=(ALL:ALL) ALL
+          deploy ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart *, /usr/bin/systemctl status *
+        dest: /etc/sudoers.d/managed-users
+        owner: root
+        group: root
+        mode: "0440"
+        validate: visudo -cf %s  # validates syntax before writing — prevents sudo lockout
+
+    - name: Remove packer build user
+      ansible.builtin.user:
+        name: packer
+        state: absent
+        remove: true

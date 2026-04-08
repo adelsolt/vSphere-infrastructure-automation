@@ -1,0 +1,10 @@
+---
+common_packages:
+  - curl
+  - git
+  - htop
+  - vim
+  - wget
+  - unzip
+  - python3
+  - sudo

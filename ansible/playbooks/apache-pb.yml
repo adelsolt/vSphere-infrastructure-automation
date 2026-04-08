@@ -1,20 +1,85 @@
 ---
-# Playbook to install and configure Apache web server
-- name: Install and configure Apache web server
+- name: Apache web server setup
   hosts: webservers
-  become: yes
+  become: true
+  gather_facts: true
+
+  vars:
+    apache_port: 80
+    apache_server_name: "{{ inventory_hostname }}.rscc.internal"
+    apache_document_root: /var/www/html
+
   tasks:
-    - name: Install Apache
-      apt:
+    - name: Install apache2
+      ansible.builtin.apt:
         name: apache2
         state: present
-        update_cache: yes
+        update_cache: false
 
-    - name: Ensure Apache is running and enabled
-      systemd:
+    - name: Enable required modules
+      community.general.apache2_module:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - rewrite
+        - headers
+        - ssl
+      notify: Restart apache2
+
+    - name: Deploy virtual host config
+      ansible.builtin.template:
+        src: ../templates/apache-vhost.conf.j2
+        dest: "/etc/apache2/sites-available/{{ apache_server_name }}.conf"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload apache2
+
+    - name: Enable site
+      ansible.builtin.command:
+        cmd: "a2ensite {{ apache_server_name }}.conf"
+        creates: "/etc/apache2/sites-enabled/{{ apache_server_name }}.conf"
+      notify: Reload apache2
+
+    - name: Disable default site
+      ansible.builtin.command:
+        cmd: a2dissite 000-default.conf
+        removes: /etc/apache2/sites-enabled/000-default.conf
+      notify: Reload apache2
+
+    - name: Drop index page
+      ansible.builtin.copy:
+        content: |
+          <!DOCTYPE html>
+          <html>
+          <head><title>{{ inventory_hostname }}</title></head>
+          <body><h1>{{ inventory_hostname }} is up</h1></body>
+          </html>
+        dest: "{{ apache_document_root }}/index.html"
+        owner: www-data
+        group: www-data
+        mode: "0644"
+
+    - name: Ensure apache2 is started and enabled
+      ansible.builtin.systemd:
         name: apache2
-        enabled: yes
         state: started
+        enabled: true
 
+    - name: Verify apache2 responds on port {{ apache_port }}
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ apache_port }}"
+        status_code: 200
+      retries: 3
+      delay: 5
 
+  handlers:
+    - name: Restart apache2
+      ansible.builtin.systemd:
+        name: apache2
+        state: restarted
 
+    - name: Reload apache2
+      ansible.builtin.systemd:
+        name: apache2
+        state: reloaded

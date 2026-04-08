@@ -1,24 +1,78 @@
 ---
-# Playbook to install and configure a database server (e.g., MySQL)
-- name: Install and configure database server
+- name: MySQL database server setup
   hosts: dbservers
-  become: yes
+  become: true
+  gather_facts: true
+
+  vars_files:
+    - ../group_vars/vault.yml
+
+  vars:
+    mysql_root_password: "{{ vault_mysql_root_password }}"
+    mysql_bind_address: "127.0.0.1"
+
   tasks:
-    - name: Install MySQL server
-      apt:
-        name: mysql-server
+    - name: Install mysql-server and python3-pymysql
+      ansible.builtin.apt:
+        name:
+          - mysql-server
+          - python3-pymysql  # required by the community.mysql modules
         state: present
-        update_cache: yes
+        update_cache: false
 
-    - name: Ensure MySQL is running and enabled
-      systemd:
+    - name: Ensure mysql is started and enabled
+      ansible.builtin.systemd:
         name: mysql
-        enabled: yes
         state: started
+        enabled: true
 
-    - name: Set MySQL root password
-      mysql_user:
+    - name: Set root password
+      community.mysql.mysql_user:
         name: root
+        host: localhost
         password: "{{ mysql_root_password }}"
-        priv: "*.*:ALL"
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        priv: "*.*:ALL,GRANT"
         state: present
+      no_log: true
+
+    - name: Remove anonymous users
+      community.mysql.mysql_user:
+        name: ""
+        host_all: true
+        state: absent
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+      no_log: true
+
+    - name: Remove test database
+      community.mysql.mysql_db:
+        name: test
+        state: absent
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+      no_log: true
+
+    - name: Set bind-address to localhost only
+      ansible.builtin.lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: '^#?bind-address'
+        line: "bind-address = {{ mysql_bind_address }}"
+      notify: Restart mysql
+
+    - name: Verify mysql is accepting connections
+      community.mysql.mysql_info:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+      no_log: true
+      register: mysql_info
+
+    - name: Print mysql version
+      ansible.builtin.debug:
+        msg: "MySQL {{ mysql_info.version.full }} running on {{ inventory_hostname }}"
+
+  handlers:
+    - name: Restart mysql
+      ansible.builtin.systemd:
+        name: mysql
+        state: restarted

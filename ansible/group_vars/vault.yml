@@ -1,0 +1,12 @@
+---
+# encrypted with ansible-vault — never commit the plaintext version
+#
+# to create:  ansible-vault create group_vars/vault.yml
+# to edit:    ansible-vault edit group_vars/vault.yml
+#
+# plaintext structure:
+# vault_token: "hvs.XXXXXXXXXX"
+# vault_mysql_root_password: "your-strong-password"
+#
+# $ANSIBLE_VAULT;1.1;AES256
+# (run ansible-vault create to generate real encrypted content)
