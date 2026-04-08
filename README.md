@@ -1,127 +1,172 @@
-# Infrastructure as Coded
+# Automated resource provisioning in Vsphere vCenter with Packer, Terraform, Ansible and Vault
 
-## Overview
+Automated VM provisioning pipeline for a VMware vSphere environment. The whole thing, from raw ISO to a configured, hardened server, runs without touching vCenter manually. Built with Packer, Terraform, Ansible, and HashiCorp Vault.
 
-The "Infrastructure as Coded" project automates the provisioning and management of cloud infrastructure using a combination of VMware vCenter, Packer, Terraform, Ansible, and HashiCorp Vault. This approach streamlines the creation and management of virtual machines (VMs) by building reusable OS image templates, deploying VMs, configuring them with necessary software, and securely managing secrets.
+## What this does
 
-## Project Structure
+You give it an ISO. It gives you a production-ready server.
 
-### Directory Layout
+Packer takes the ISO and bakes it into a reusable vCenter template. Terraform clones that template into a real VM with whatever CPU/RAM/disk/network spec you define. Ansible SSHes in and finishes the job, packages, users, services, SSH hardening. Vault sits behind all three stages handling credentials so nothing sensitive ever touches a file or an env var you didn't explicitly set.
 
-```plaintext
-.
-├── packer/
-│   ├── templates/          # Packer templates for creating VM images
-│   │   ├── debian12.json   # Packer template for Debian 12
-│   │   ├── ubuntu.json     # Packer template for Ubuntu
-│   │   └── centos.json     # Packer template for CentOS
-│   ├── scripts/            # Scripts and preseed files for initial VM setup
-│   │   ├── preseed/        # Preseed files for automated OS installation
-│   │   │   ├── debian_preseed.cfg
-│   │   │   ├── ubuntu_preseed.cfg
-│   │   │   └── centos_preseed.cfg
-│   └── vars/               # Variables and configuration files for Packer
-│       └── variables.json
-├── terraform/
-│   ├── main.tf             # Main Terraform configuration file for vCenter
-│   ├── variables.tf        # Variables definition for Terraform
-│   ├── terraform.tfvars    # Variable values for Terraform
-│   ├── outputs.tf          # Outputs from Terraform
-│   ├── providers.tf        # Terraform provider configuration
-│   └── backend.tf          # Terraform backend configuration
-├── ansible/
-│   ├── ansible.cfg         # Ansible configuration file
-│   ├── inventory/          # Inventory file listing hosts
-│   │   └── hosts.ini
-│   ├── playbooks/          # Ansible playbooks for server configuration
-│   │   ├── apache.yml      # Playbook to install and configure Apache
-│   │   ├── users.yml       # Playbook to create users and configure SSH
-│   │   ├── common.yml      # Playbook for common tasks (updates, utilities)
-│   │   └── db_server.yml   # Playbook to install and configure a database server
-│   └── roles/              # Ansible roles for reusable tasks
-│       └── common/
-│           ├── tasks/
-│           │   └── main.yml
-│           └── handlers/
-│               └── main.yml
-├── vault/
-│   ├── config/             # Vault configuration files
-│   └── secrets/            # Securely stored secrets for Ansible and Terraform
-└── README.md               # This file
+The split between the three tools is intentional. Packer runs once per OS version, maybe a few times a year when you want to refresh the base image. Terraform and Ansible run every time you need a new VM, which is where the real time savings are. From `terraform apply` to a fully configured machine is usually under 5 minutes.
+
 ```
-## Project Components
+ISO in vCenter datastore
+        │
+      Packer  ──── preseed/kickstart answers the installer
+        │           post-install script cleans up, resets machine-id
+        ▼
+  VM Template in vCenter
+        │
+    Terraform  ──── pulls vSphere creds from Vault
+        │           clones template, sets hostname via guest customization
+        │           waits for VMware Tools to report an IP
+        ▼
+  Running VM (IP from terraform output)
+        │
+     Ansible  ──── reads IP from hosts.ini
+        │          fetches runtime secrets from Vault
+        │          hardens SSH, installs packages, creates users, starts services
+        ▼
+  web-01.rscc.internal, ready
+```
 
-- **VMware vCenter**: Required for managing VM templates and deployments. 
-- **Packer**: For creating OS image templates. 
-- **Terraform**: For provisioning VMs and managing infrastructure.
-- **Ansible**: For configuring and managing VMs post-deployment.
-- **Vault**: For securely storing secrets and sensitive data.
-- **HTTP Server**: Needed to serve preseed files for automated OS installations.
+## Requirements
 
-## Getting Started
+You need these installed locally before anything runs:
 
-### Packer
+| Tool | Min version |
+|------|------------|
+| Packer | 1.9.0 |
+| Terraform | 1.6.0 |
+| Ansible | 2.14 |
+| Vault CLI | 1.15 |
 
-1. **Installed Packer**: Downloaded and installed Packer 
+On macOS: `brew install packer terraform vault` and `pip install ansible`.
+On Linux: grab the binaries from releases.hashicorp.com or use your package manager.
 
-2. **Configured Packer Templates**: Edited the Packer JSON files in `packer/templates/` to customize the VM images.
+On the vSphere side you need vCenter 7.0 or newer, a datastore with the ISO files already uploaded, and an account with permissions to create and manage VMs. The expected ISO paths are in the `locals` block of each Packer template, update those to match where you actually put the files.
 
-3. **VM Images Building**
+## Files you need to fill in before running anything
 
-    ```bash
-    packer build packer/templates/debian12.json
-    packer build packer/templates/ubuntu.json
-    packer build packer/templates/centos.json
-    ```
+**`packer/vars/debian-12-vars.pkr.hcl`** (and the ubuntu/centos equivalents), set `vcenter_server`, `vcenter_user`, `datacenter`, `cluster`, `datastore`, and `network` to match your vCenter environment. The password is not in this file on purpose, pass it at build time via `-var="vcenter_password=$VSPHERE_PASSWORD"`.
 
-### HTTP Preseed Server
+**`terraform/terraform.tfvars`**, fill in `vsphere_server`, `vault_address`, your vSphere topology names (datacenter, cluster, datastore, network), and the VM spec. The `template_uuid` field at the bottom gets filled in after you run Packer, it comes from `packer/builds/debian12-manifest.json`.
 
-Starting an HTTP server to serve the preseed files for automated OS installations:
+**`ansible/inventory/hosts.ini`**, update the IP addresses after `terraform apply`. The easiest way is `terraform output vm_default_ip`, then paste that into the right group.
+
+**`ansible/group_vars/vault.yml`**, this is an ansible-vault encrypted file. You create it with `ansible-vault create group_vars/vault.yml` and put in `vault_token` and `vault_mysql_root_password`. The vault password file lives at `~/.ansible_vault_pass.txt` (configured in `ansible.cfg`).
+
+## Running it
+
+### Step 0, start Vault and store your secrets
+
+This runs once, on whatever machine will host your Vault instance. If you already have a running Vault, skip straight to the `kv put` commands.
 
 ```bash
-cd packer/scripts/preseed/
-python3 -m http.server 8080
+vault server -config=vault/config/vault-config.hcl &
+
+vault operator init    # save the unseal keys and root token, you need these to restart Vault
+vault operator unseal  # run this 3 times with 3 different keys from the init output
+vault login            # use the root token
 ```
-### Terraform
 
-1. **Installed Terraform**
+Now push the credentials that Terraform and Ansible will pull at runtime:
 
-2. **Configured Terraform Files**: located in `terraform/` 
+```bash
+vault kv put secret/vsphere \
+  user="administrator@vsphere.local" \
+  password="your-vcenter-password"
 
-3. **Initialized and Applied Terraform**
+vault kv put secret/ansible \
+  user="packer" \
+  private_key="$(cat ~/.ssh/rscc_id_rsa)"
 
-    ```bash
-    cd terraform/
-    terraform init
-    terraform apply
-    ```
+vault kv put secret/mysql \
+  root_password="your-mysql-root-password"
+```
 
-### Ansible
+### Step 1, build OS templates with Packer
 
-1. **Installed Ansibled**
+Run this from the `packer/` directory. The `-var` flag for the password reads from your shell environment so it never hits disk.
 
-2. **Configured Inventory**: Update `ansible/inventory/hosts.ini` with VM IP addresses.
+```bash
+cd packer/
+packer init templates/debian.pkr.hcl
 
-3. **Running Playbooks**
+packer build \
+  -var-file=vars/debian-12-vars.pkr.hcl \
+  -var="vcenter_password=$VSPHERE_PASSWORD" \
+  templates/debian.pkr.hcl
+```
 
-    ```bash
-    ansible-playbook ansible/playbooks/apache.yml
-    ansible-playbook ansible/playbooks/users.yml
-    ansible-playbook ansible/playbooks/common.yml
-    ansible-playbook ansible/playbooks/db_server.yml
-    ```
+Same pattern for Ubuntu and CentOS:
 
+```bash
+packer build -var-file=vars/ubuntu-vars.pkr.hcl -var="vcenter_password=$VSPHERE_PASSWORD" templates/ubuntu.pkr.hcl
+packer build -var-file=vars/centos-vars.pkr.hcl -var="vcenter_password=$VSPHERE_PASSWORD" templates/centos.pkr.hcl
+```
 
-### Vault Integration
+When the build finishes, grab the template UUID from `builds/debian12-manifest.json` and drop it into `terraform/terraform.tfvars` as `template_uuid`. You only need to redo this step when you want a fresh base image, not every time you deploy a VM.
 
-Vault is used to securely store and retrieve sensitive information such as passwords, API keys, and SSH credentials. Which will be dynamically injected into the Terraform and Ansible configurations during deployment.
+### Step 2, provision the VM with Terraform
 
-1. **Installed Vault**
+```bash
+cd terraform/
+export VAULT_TOKEN="hvs.your-token-here"
 
-2. **Configured Vault**: Setted up Vault to store the secrets required by the project. The secrets are stored in `vault/secrets/`.
+terraform init
+terraform plan   # read this before applying, it tells you exactly what gets created
+terraform apply
+```
 
-3. **Used Vault in Terraform and Ansible**: The Terraform and Ansible configurations are modified to pull secrets from Vault instead of hardcoding them directly.
+After apply completes:
 
-   For example:
-   - In Terraform, `vault_generic_secret` can used to retrieve secrets.
-   - In Ansible, `ansible-vault` can used integration to securely access secrets.
+```bash
+terraform output vm_default_ip   # copy this into ansible/inventory/hosts.ini
+```
+
+### Step 3, configure the VM with Ansible
+
+Update `hosts.ini` with the IP from the previous step, then run the playbooks in order. Common always goes first.
+
+```bash
+cd ansible/
+
+ansible-playbook playbooks/common.yml          # baseline, packages, SSH hardening, hostname
+ansible-playbook playbooks/users.yml           # service accounts, SSH keys, removes packer user
+ansible-playbook playbooks/apache-pb.yml       # web servers only (webservers group)
+ansible-playbook playbooks/mysql-pb.yml        # db servers only (dbservers group)
+```
+
+If you want to run against a specific host instead of the whole group:
+
+```bash
+ansible-playbook playbooks/common.yml --limit web-01
+```
+
+## Secrets, how it actually works
+
+Nothing sensitive is hardcoded anywhere in this repo. Credentials flow through three mechanisms depending on the tool:
+
+Packer gets the vCenter password from the `-var` flag you pass at CLI, which you source from a shell env var. It never writes it to disk and it never appears in the build output because the variable is marked `sensitive = true`.
+
+Terraform fetches the vSphere credentials from HashiCorp Vault using the `vault_generic_secret` data source in `providers.tf`. The only thing Terraform needs from you is a `VAULT_TOKEN` env var, everything else it pulls from Vault at plan time.
+
+Ansible uses two layers. The `group_vars/vault.yml` file is encrypted at rest with ansible-vault, and contains the Vault token and MySQL password. When a playbook runs, Ansible decrypts that file using your `~/.ansible_vault_pass.txt`. The common playbook then uses the Vault token to make an API call to HashiCorp Vault and pull any additional runtime secrets.
+
+The `vault/secrets/credentials.json` file in this repo is just a reference, it shows you the key structure so you know what to `kv put` into Vault. The real values only ever exist inside the running Vault instance.
+
+## Troubleshooting
+
+**Packer times out waiting for SSH**, the installer couldn't reach the preseed/kickstart file. Packer serves it over a temporary HTTP server on a random port (usually 8000–9000). Check that your firewall isn't blocking outbound connections from the VM to your workstation on those ports. The boot command logs in the Packer output will show you the URL it tried to use.
+
+**Terraform fails with "resource pool not found"**, the names in `terraform.tfvars` have to match vCenter exactly, including capitalization. `Cluster1` and `cluster1` are different things to vCenter. Double-check in vCenter under Hosts and Clusters.
+
+**Ansible can't reach the VM**, if it's a fresh deploy, the host key won't be in known_hosts yet, but `host_key_checking = False` in `ansible.cfg` handles that. More likely the IP in `hosts.ini` is wrong or the `packer` user doesn't have SSH key auth set up. Verify with `ssh -i ~/.ssh/rscc_id_rsa packer@<vm-ip>` before running the playbook.
+
+**Multiple VMs getting the same DHCP lease**, the template was built without the machine-id reset. Fix it per-VM with:
+```bash
+sudo truncate -s 0 /etc/machine-id && sudo systemd-machine-id-setup
+```
+Then rebuild the template so future clones don't have this issue.
