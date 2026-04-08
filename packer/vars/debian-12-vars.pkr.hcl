@@ -1,7 +1,7 @@
 # ============================================================
 # Debian 12 build vars
 #
-# Pass the password at build time — never store it in this file.
+# Pass the password at build time, never store it in this file.
 # The variable is declared without a default in the template,
 # so Packer will refuse to build if you forget to pass it:
 #
@@ -13,7 +13,7 @@
 
 vcenter_server = "vcenter.rscc.internal"
 vcenter_user   = "administrator@vsphere.local"
-# vcenter_password — intentionally omitted, pass via -var at CLI
+# vcenter_password, intentionally omitted, pass via -var at CLI
 
 datacenter = "RSCC-DC01"
 cluster    = "RSCC-Cluster01"

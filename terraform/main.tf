@@ -1,15 +1,3 @@
-# Main Terraform configuration for vCenter
-
-provider "vsphere" {
-  user           = var.vcenter_user
-  password       = var.vcenter_password
-  vsphere_server = var.vcenter_server
-
-  # If you have a self-signed cert
-  allow_unverified_ssl = true
-}
-
-# Data sources for vCenter resources
 data "vsphere_datacenter" "dc" {
   name = var.datacenter_name
 }
@@ -24,12 +12,11 @@ data "vsphere_datastore" "datastore" {
   datacenter_id = data.vsphere_datacenter.dc.id
 }
 
-data "vsphere_network" "network" {
+data "vsphere_network" "vm_network" {
   name          = var.network_name
   datacenter_id = data.vsphere_datacenter.dc.id
 }
 
-# Defined the VM template
 resource "vsphere_virtual_machine" "vm" {
   name             = var.vm_name
   resource_pool_id = data.vsphere_compute_cluster.cluster.resource_pool_id
@@ -40,29 +27,28 @@ resource "vsphere_virtual_machine" "vm" {
   guest_id = var.vm_guest_id
 
   network_interface {
-    network_id   = data.vsphere_network.network.id
+    network_id   = data.vsphere_network.vm_network.id
     adapter_type = var.network_adapter_type
   }
 
   disk {
     label            = "disk0"
     size             = var.disk_size
-    eagerly_scrub    = false
     thin_provisioned = true
+    eagerly_scrub    = false
   }
 
   clone {
     template_uuid = var.template_uuid
+
     customize {
       linux_options {
         host_name = var.vm_name
         domain    = var.domain
       }
+      # network_interface block omitted, defaults to DHCP
+      # or could just add ipv4_address / ipv4_netmask / ipv4_gateway here for static assignment
     }
   }
-}
-
-# Outputs
-output "vm_id" {
-  value = vsphere_virtual_machine.vm.id
+  wait_for_guest_net_timeout = 5
 }

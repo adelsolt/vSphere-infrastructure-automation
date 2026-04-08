@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Debian 12 post-install — runs via packer shell provisioner
+# Debian 12 post-install, runs via packer shell provisioner
 
 set -euo pipefail
 
-# write sources before the first apt-get so the update pulls from the right place
+# write sources before the first apt-get, so the update pulls from the right place
 cat > /etc/apt/sources.list << 'EOF'
 deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
 deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
@@ -26,7 +26,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
 timedatectl set-timezone UTC
 systemctl enable open-vm-tools
 
-# clones must generate their own host keys — shared keys break known_hosts and are a MITM risk
+# clones must generate their own host keys, shared keys break known_hosts and are a MITM risk
 rm -f /etc/ssh/ssh_host_*
 
 # empty machine-id so systemd generates a fresh one on first boot of each clone

@@ -1,17 +1,17 @@
-vsphere_user     = "administrator@vsphere.local"
-vsphere_password = "your_password"
-vsphere_server   = "your_vcenter_ip"
+vsphere_server = "vcenter.rscc.internal"
+vault_address  = "https://vault.rscc.com:8200"
 
-datacenter       = "Datacenter1"
-datastore        = "datastore1"
-cluster          = "Cluster1"
-network          = "VM Network"
+datacenter_name = "RSCC-DC01"
+cluster_name    = "RSCC-Cluster01"
+datastore_name  = "ds-ssd-prod-01"
+network_name    = "vlan100-mgmt"
 
-vm_template      = "debian12-template"  # Change to ubuntu-template or centos-template for different OS
-vm_name          = "test-vm"
-num_cpus         = 2
-memory           = 4096
-disk_size        = 10
+vm_name              = "postgre-server"
+vm_num_cpus          = 2
+vm_memory            = 4096
+disk_size            = 20
+vm_guest_id          = "debian11_64Guest"
+network_adapter_type = "vmxnet3"
+domain               = "rscc.internal"
 
-vm_ip            = "192.168.1.100"  # Adjust to match your static IP setup
-vm_gateway       = "192.168.1.1"    # Adjust to match your gateway
+template_uuid = "420f4e0b-xxxx-xxxx-xxxx-xxxxxxxxxxxx"

@@ -1,20 +1,30 @@
-provider "vsphere" {
-  user           = var.vsphere_user       # Username is now securely stored in Vault
-  password       = var.vsphere_password   # Password is securely stored in Vault
-  vsphere_server = var.vsphere_server
-  allow_unverified_ssl = true
+terraform {
+  required_version = ">= 1.6.0"
+
+  required_providers {
+    vsphere = {
+      source  = "hashicorp/vsphere"
+      version = "~> 2.6"
+    }
+    vault = {
+      source  = "hashicorp/vault"
+      version = "~> 3.20"
+    }
+  }
 }
 
 provider "vault" {
-  address = "https://vault.example.com:8200"  # Vault server address
+  address = var.vault_address
+  # VAULT_TOKEN env var is picked up automatically 
 }
 
 data "vault_generic_secret" "vsphere_creds" {
-  path = "secret/data/vsphere"  # Vault path for vSphere credentials
+  path = "secret/vsphere"
 }
 
-provider "ansible" {
-  user        = data.vault_generic_secret.ansible_creds.data["user"]  # Ansible credentials from Vault
-  private_key = data.vault_generic_secret.ansible_creds.data["private_key"]
+provider "vsphere" {
+  user                 = data.vault_generic_secret.vsphere_creds.data["user"]
+  password             = data.vault_generic_secret.vsphere_creds.data["password"]
+  vsphere_server       = var.vsphere_server
+  allow_unverified_ssl = true # this is just for testing, in prod we have to set to false with a vCenter valid cert
 }
-

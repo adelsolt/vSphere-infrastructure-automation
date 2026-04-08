@@ -24,7 +24,7 @@ systemctl enable open-vm-tools
 touch /etc/cloud/cloud-init.disabled
 cloud-init clean --logs --seed
 
-# clones must generate their own host keys — shared keys break known_hosts and are a MITM risk
+# clones must generate their own host keys, shared keys break known_hosts and are a MITM risk
 rm -f /etc/ssh/ssh_host_*
 
 # empty machine-id so systemd generates a fresh one on first boot of each clone
