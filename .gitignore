@@ -1,1 +1,52 @@
-terraform.tfvars
+# Terraform state, contains sensitive output values and resource IDs
+*.tfstate
+*.tfstate.backup
+*.tfstate.*.backup
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars        # has actual server addresses
+
+# Packer build artifacts
+builds/
+packer_cache/
+*.box
+
+# Ansible vault password file
+.ansible_vault_pass.txt
+~/.ansible_vault_pass.txt
+
+# SSH private keys, never ever commit these
+*.pem
+*.key
+id_rsa
+id_ed25519
+*_id_rsa
+*_id_ed25519
+
+# SSH public keys for specific users, manage separately
+ansible/files/pubkeys/
+
+# Python virtualenvs, cache
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# macOS noise
+.DS_Store
+.AppleDouble
+
+# Editor noise
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Secrets that should never touch the repo
+*.secret
+.env
+.env.*
+vault/secrets/actual-credentials.json
